@@ -8,4 +8,4 @@ set(EXTRA_COMPONENT_DIRS protocol)
 set(COMPONENTS protocol mqtt tcp_transport esp_netif main)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(mqtt_tcp)
+project(mqtt)

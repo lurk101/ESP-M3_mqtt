@@ -47,7 +47,6 @@ static void start(void) {
 static void stop(void) {
     wifi_stop();
     s_active_interfaces--;
-
 }
 
 static esp_ip4_addr_t s_ip_addr;
