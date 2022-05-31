@@ -10,7 +10,7 @@
 #include "driver/uart.h"
 #include "esp_err.h"
 #include "esp_vfs_dev.h"
-#include "protocol_examples_common.h"
+#include "protocol_common.h"
 #include "sdkconfig.h"
 
 esp_err_t example_configure_stdin_stdout(void) {
