@@ -29,71 +29,71 @@
 
 static const char *TAG = "MQTT_WEATHER";
 
-#define I2C_MASTER_SCL_IO GPIO_NUM_14 /*!< GPIO number used for I2C master clock */
-#define I2C_MASTER_SDA_IO GPIO_NUM_2  /*!< GPIO number used for I2C master data  */
-#define I2C_MASTER_NUM 0              /*!< I2C master i2c port number */
-#define I2C_MASTER_FREQ_HZ 40000      /*!< I2C master clock frequency */
-#define I2C_MASTER_TX_BUF_DISABLE 0   /*!< I2C master doesn't need buffer */
-#define I2C_MASTER_RX_BUF_DISABLE 0   /*!< I2C master doesn't need buffer */
+#define I2C_MASTER_SCL_IO GPIO_NUM_14
+#define I2C_MASTER_SDA_IO GPIO_NUM_2
+#define I2C_MASTER_NUM 0
+#define I2C_MASTER_FREQ_HZ 40000
+#define I2C_MASTER_TX_BUF_DISABLE 0
+#define I2C_MASTER_RX_BUF_DISABLE 0
 #define I2C_MASTER_TIMEOUT_MS 1000
 
 enum {
     BME280_SENSOR_ADDR = 0x60,
-    BME280_REGISTER_DIG_T1 = 0x88,
-    BME280_REGISTER_DIG_T2 = 0x8A,
-    BME280_REGISTER_DIG_T3 = 0x8C,
+    BME280_REG_DIG_T1 = 0x88,
+    BME280_REG_DIG_T2 = 0x8A,
+    BME280_REG_DIG_T3 = 0x8C,
 
-    BME280_REGISTER_DIG_P1 = 0x8E,
-    BME280_REGISTER_DIG_P2 = 0x90,
-    BME280_REGISTER_DIG_P3 = 0x92,
-    BME280_REGISTER_DIG_P4 = 0x94,
-    BME280_REGISTER_DIG_P5 = 0x96,
-    BME280_REGISTER_DIG_P6 = 0x98,
-    BME280_REGISTER_DIG_P7 = 0x9A,
-    BME280_REGISTER_DIG_P8 = 0x9C,
-    BME280_REGISTER_DIG_P9 = 0x9E,
+    BME280_REG_DIG_P1 = 0x8E,
+    BME280_REG_DIG_P2 = 0x90,
+    BME280_REG_DIG_P3 = 0x92,
+    BME280_REG_DIG_P4 = 0x94,
+    BME280_REG_DIG_P5 = 0x96,
+    BME280_REG_DIG_P6 = 0x98,
+    BME280_REG_DIG_P7 = 0x9A,
+    BME280_REG_DIG_P8 = 0x9C,
+    BME280_REG_DIG_P9 = 0x9E,
 
-    BME280_REGISTER_DIG_H1 = 0xA1,
-    BME280_REGISTER_DIG_H2 = 0xE1,
-    BME280_REGISTER_DIG_H3 = 0xE3,
-    BME280_REGISTER_DIG_H4 = 0xE4,
-    BME280_REGISTER_DIG_H5 = 0xE5,
-    BME280_REGISTER_DIG_H6 = 0xE7,
+    BME280_REG_DIG_H1 = 0xA1,
+    BME280_REG_DIG_H2 = 0xE1,
+    BME280_REG_DIG_H3 = 0xE3,
+    BME280_REG_DIG_H4 = 0xE4,
+    BME280_REG_DIG_H5 = 0xE5,
+    BME280_REG_DIG_H6 = 0xE7,
 
-    BME280_REGISTER_CHIPID = 0xD0,
-    BME280_REGISTER_VERSION = 0xD1,
-    BME280_REGISTER_SOFTRESET = 0xE0,
+    BME280_REG_CHIPID = 0xD0,
+    BME280_REG_VERSION = 0xD1,
+    BME280_REG_SOFTRESET = 0xE0,
 
-    BME280_REGISTER_CAL26 = 0xE1, // R calibration stored in 0xE1-0xF0
+    BME280_REG_CAL26 = 0xE1, // R calibration stored in 0xE1-0xF0
 
-    BME280_REGISTER_CONTROLHUMID = 0xF2,
-    BME280_REGISTER_STATUS = 0XF3,
-    BME280_REGISTER_CONTROL = 0xF4,
-    BME280_REGISTER_CONFIG = 0xF5,
-    BME280_REGISTER_PRESSUREDATA = 0xF7,
-    BME280_REGISTER_TEMPDATA = 0xFA,
-    BME280_REGISTER_HUMIDDATA = 0xFD
+    BME280_REG_CONTROLHUMID = 0xF2,
+    BME280_REG_STATUS = 0XF3,
+    BME280_REG_CONTROL = 0xF4,
+    BME280_REG_CONFIG = 0xF5,
+    BME280_REG_PRESSUREDATA = 0xF7,
+    BME280_REG_TEMPDATA = 0xFA,
+    BME280_REG_HUMIDDATA = 0xFD
 };
 
 static struct {
-    uint16_t dig_T1; ///< temperature compensation value
-    int16_t dig_T2;  ///< temperature compensation value
-    int16_t dig_T3;  ///< temperature compensation value
-    uint16_t dig_P1; ///< pressure compensation value
-    int16_t dig_P2;  ///< pressure compensation value
-    int16_t dig_P3;  ///< pressure compensation value
-    int16_t dig_P4;  ///< pressure compensation value
-    int16_t dig_P5;  ///< pressure compensation value
-    int16_t dig_P6;  ///< pressure compensation value
-    int16_t dig_P7;  ///< pressure compensation value
-    int16_t dig_P8;  ///< pressure compensation value
-    int16_t dig_P9;  ///< pressure compensation value
-    uint8_t dig_H1;  ///< humidity compensation value
-    int16_t dig_H2;  ///< humidity compensation value
-    uint8_t dig_H3;  ///< humidity compensation value
-    int16_t dig_H4;  ///< humidity compensation value
-    int16_t dig_H5;  ///< humidity compensation value
-    int8_t dig_H6;   ///< humidity compensation value
+    uint16_t dig_T1; // temperature compensation values
+    int16_t dig_T2;
+    int16_t dig_T3;
+    uint16_t dig_P1; // pressure compensation values
+    int16_t dig_P2;
+    int16_t dig_P3;
+    int16_t dig_P4;
+    int16_t dig_P5;
+    int16_t dig_P6;
+    int16_t dig_P7;
+    int16_t dig_P8;
+    int16_t dig_P9;
+    uint8_t dig_H1; // humidity compensation values
+    int16_t dig_H2;
+    uint8_t dig_H3;
+    int16_t dig_H4;
+    int16_t dig_H5;
+    int8_t dig_H6;
 } _bme280_calib;
 
 static void log_error_if_nonzero(const char* message, int error_code) {
@@ -121,8 +121,8 @@ static uint32_t read24(uint16_t reg) {
     ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
                                                1, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
     ESP_ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
-                                                sizeof(buf), pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
-    return buf;
+                                                3, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    return __builtin_bswap32(buf);
 }
 
 static uint16_t read16(uint16_t reg) {
@@ -131,39 +131,34 @@ static uint16_t read16(uint16_t reg) {
                                                1, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
     ESP_ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
                                                 sizeof(buf), pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
-    return buf;
+    return __builtin_bswap16(buf);
 }
 
-static uint16_t read16_LE(uint16_t reg) { return __builtin_bswap16(read16(reg)); }
+static int16_t readS16(uint16_t reg) { return (int16_t)read16(reg); }
 
-static int16_t readS16_LE(uint16_t reg) { return (int16_t)read16_LE(reg); }
-
-static bool isReadingCalibration(void) {
-    uint8_t rStatus = read8(BME280_REGISTER_STATUS);
-    return (rStatus & (1 << 0)) != 0;
-}
+static bool isReadingCalibration(void) { return read8(BME280_REG_STATUS) & 1; }
 
 static void readCoefficients(void) {
-    _bme280_calib.dig_T1 = read16_LE(BME280_REGISTER_DIG_T1);
-    _bme280_calib.dig_T2 = readS16_LE(BME280_REGISTER_DIG_T2);
-    _bme280_calib.dig_T3 = readS16_LE(BME280_REGISTER_DIG_T3);
-    _bme280_calib.dig_P1 = read16_LE(BME280_REGISTER_DIG_P1);
-    _bme280_calib.dig_P2 = readS16_LE(BME280_REGISTER_DIG_P2);
-    _bme280_calib.dig_P3 = readS16_LE(BME280_REGISTER_DIG_P3);
-    _bme280_calib.dig_P4 = readS16_LE(BME280_REGISTER_DIG_P4);
-    _bme280_calib.dig_P5 = readS16_LE(BME280_REGISTER_DIG_P5);
-    _bme280_calib.dig_P6 = readS16_LE(BME280_REGISTER_DIG_P6);
-    _bme280_calib.dig_P7 = readS16_LE(BME280_REGISTER_DIG_P7);
-    _bme280_calib.dig_P8 = readS16_LE(BME280_REGISTER_DIG_P8);
-    _bme280_calib.dig_P9 = readS16_LE(BME280_REGISTER_DIG_P9);
-    _bme280_calib.dig_H1 = read8(BME280_REGISTER_DIG_H1);
-    _bme280_calib.dig_H2 = readS16_LE(BME280_REGISTER_DIG_H2);
-    _bme280_calib.dig_H3 = read8(BME280_REGISTER_DIG_H3);
+    _bme280_calib.dig_T1 = read16(BME280_REG_DIG_T1);
+    _bme280_calib.dig_T2 = readS16(BME280_REG_DIG_T2);
+    _bme280_calib.dig_T3 = readS16(BME280_REG_DIG_T3);
+    _bme280_calib.dig_P1 = read16(BME280_REG_DIG_P1);
+    _bme280_calib.dig_P2 = readS16(BME280_REG_DIG_P2);
+    _bme280_calib.dig_P3 = readS16(BME280_REG_DIG_P3);
+    _bme280_calib.dig_P4 = readS16(BME280_REG_DIG_P4);
+    _bme280_calib.dig_P5 = readS16(BME280_REG_DIG_P5);
+    _bme280_calib.dig_P6 = readS16(BME280_REG_DIG_P6);
+    _bme280_calib.dig_P7 = readS16(BME280_REG_DIG_P7);
+    _bme280_calib.dig_P8 = readS16(BME280_REG_DIG_P8);
+    _bme280_calib.dig_P9 = readS16(BME280_REG_DIG_P9);
+    _bme280_calib.dig_H1 = read8(BME280_REG_DIG_H1);
+    _bme280_calib.dig_H2 = readS16(BME280_REG_DIG_H2);
+    _bme280_calib.dig_H3 = read8(BME280_REG_DIG_H3);
     _bme280_calib.dig_H4 =
-        ((int8_t)read8(BME280_REGISTER_DIG_H4) << 4) | (read8(BME280_REGISTER_DIG_H4 + 1) & 0xF);
+        ((int8_t)read8(BME280_REG_DIG_H4) << 4) | (read8(BME280_REG_DIG_H4 + 1) & 0xF);
     _bme280_calib.dig_H5 =
-        ((int8_t)read8(BME280_REGISTER_DIG_H5 + 1) << 4) | (read8(BME280_REGISTER_DIG_H5) >> 4);
-    _bme280_calib.dig_H6 = (int8_t)read8(BME280_REGISTER_DIG_H6);
+        ((int8_t)read8(BME280_REG_DIG_H5 + 1) << 4) | (read8(BME280_REG_DIG_H5) >> 4);
+    _bme280_calib.dig_H6 = (int8_t)read8(BME280_REG_DIG_H6);
 }
 
 enum sensor_mode { MODE_SLEEP = 0b00, MODE_FORCED = 0b01, MODE_NORMAL = 0b11 };
@@ -287,24 +282,24 @@ static void setSampling(enum sensor_mode mode, enum sensor_sampling tempSampling
 
     // making sure sensor is in sleep mode before setting configuration
     // as it otherwise may be ignored
-    write8(BME280_REGISTER_CONTROL, MODE_SLEEP);
+    write8(BME280_REG_CONTROL, MODE_SLEEP);
 
     // you must make sure to also set REGISTER_CONTROL after setting the
     // CONTROLHUMID register, otherwise the values won't be applied (see
     // DS 5.4.3)
-    write8(BME280_REGISTER_CONTROLHUMID, get_humReg());
-    write8(BME280_REGISTER_CONFIG, get_configReg());
-    write8(BME280_REGISTER_CONTROL, get_measReg());
+    write8(BME280_REG_CONTROLHUMID, get_humReg());
+    write8(BME280_REG_CONFIG, get_configReg());
+    write8(BME280_REG_CONTROL, get_measReg());
 }
 
-bool BME280_init() {
+static bool BME280_init() {
     // check if sensor, i.e. the chip ID is correct
-    uint8_t _sensorID = read8(BME280_REGISTER_CHIPID);
+    uint8_t _sensorID = read8(BME280_REG_CHIPID);
     if (_sensorID != 0x60)
         return false;
     // reset the device using soft-reset
     // this makes sure the IIR is off, etc.
-    write8(BME280_REGISTER_SOFTRESET, 0xB6);
+    write8(BME280_REG_SOFTRESET, 0xB6);
     // wait for chip to wake up.
     vTaskDelay(1);
     // if chip is still reading calibration, delay
@@ -317,11 +312,12 @@ bool BME280_init() {
 }
 
 static int32_t t_fine;
-static int32_t t_fine_adjust = 0;
+static const int32_t t_fine_adjust = 0;
 
+// must read temp before others to set t_fine
 static int32_t readTemperature(void) {
     int32_t var1, var2;
-    int32_t adc_T = read24(BME280_REGISTER_TEMPDATA);
+    int32_t adc_T = read24(BME280_REG_TEMPDATA);
     if (adc_T == 0x800000) // value in case temp measurement was disabled
         return INT_MAX;
     adc_T >>= 4;
@@ -336,7 +332,7 @@ static int32_t readTemperature(void) {
 
 static int32_t readHumidity(void) {
     int32_t var1, var2, var3, var4, var5;
-    int32_t adc_H = read16(BME280_REGISTER_HUMIDDATA);
+    int32_t adc_H = read16(BME280_REG_HUMIDDATA);
     if (adc_H == 0x8000) // value in case humidity measurement was disabled
         return INT_MAX;
     var1 = t_fine - 76800;
@@ -353,13 +349,13 @@ static int32_t readHumidity(void) {
     var5 = var3 - ((var4 * ((int32_t)_bme280_calib.dig_H1)) / 16);
     var5 = var5 < 0 ? 0 : var5;
     var5 = var5 > 419430400 ? 419430400 : var5;
-    int32_t H = var5 / 4096;
-    return H / 1024;
+    int32_t H = var5 / (1023 * 4096);
+    return H;
 }
 
 static int32_t readPressure(void) {
     int64_t var1, var2, var3, var4;
-    int32_t adc_P = read24(BME280_REGISTER_PRESSUREDATA);
+    int32_t adc_P = read24(BME280_REG_PRESSUREDATA);
     if (adc_P == 0x800000) // value in case pressure measurement was disabled
         return INT_MAX;
     adc_P >>= 4;
@@ -380,6 +376,24 @@ static int32_t readPressure(void) {
     return var4 / 256;
 }
 
+static bool takeForcedMeasurement(void) {
+    bool return_value = false;
+    if (get_measReg() == MODE_FORCED) {
+        return_value = true;
+        write8(BME280_REG_CONTROL, get_measReg());
+        uint32_t timeout_start = xTaskGetTickCount();
+        while (read8(BME280_REG_STATUS) & 0x08) {
+            // In case of a timeout, stop the while loop
+            if ((xTaskGetTickCount() - timeout_start) > pdMS_TO_TICKS(2000)) {
+                return_value = false;
+                break;
+            }
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    }
+    return return_value;
+}
+
 static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id,
                                void* event_data) {
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
@@ -389,6 +403,7 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
+        takeForcedMeasurement();
         char tph[64];
         sprintf(tph, "%d,%d,%d", readTemperature(), readPressure(), readHumidity());
         msg_id =
