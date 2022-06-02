@@ -15,11 +15,14 @@
 
 #define NR_OF_IP_ADDRESSES_TO_WAIT_FOR (s_active_interfaces)
 
+#define WIFI_SSID "2"
+#define WIFI_PSWD "bogus"
+
 static int s_active_interfaces = 0;
 static SemaphoreHandle_t s_semph_get_ip_addrs;
 static esp_netif_t* s_esp_netif = NULL;
 
-static const char* TAG = "app_connect";
+static const char* TAG = "CONNECT";
 
 static esp_netif_t* wifi_start(void);
 static void wifi_stop(void);
@@ -65,15 +68,13 @@ static void on_got_ip(void* arg, esp_event_base_t event_base, int32_t event_id, 
 }
 
 esp_err_t app_connect(void) {
-    if (s_semph_get_ip_addrs != NULL) {
+    if (s_semph_get_ip_addrs != NULL)
         return ESP_ERR_INVALID_STATE;
-    }
     start();
     ESP_ERROR_CHECK(esp_register_shutdown_handler(&stop));
     ESP_LOGI(TAG, "Waiting for IP(s)");
-    for (int i = 0; i < NR_OF_IP_ADDRESSES_TO_WAIT_FOR; ++i) {
+    for (int i = 0; i < NR_OF_IP_ADDRESSES_TO_WAIT_FOR; ++i)
         xSemaphoreTake(s_semph_get_ip_addrs, portMAX_DELAY);
-    }
     // iterate over active interfaces, and print out IPs of "our" netifs
     esp_netif_t* netif = NULL;
     esp_netif_ip_info_t ip;
@@ -82,7 +83,6 @@ esp_err_t app_connect(void) {
         if (is_our_netif(TAG, netif)) {
             ESP_LOGI(TAG, "Connected to %s", esp_netif_get_desc(netif));
             ESP_ERROR_CHECK(esp_netif_get_ip_info(netif, &ip));
-
             ESP_LOGI(TAG, "- IPv4 address: " IPSTR, IP2STR(&ip.ip));
         }
     }
@@ -90,9 +90,8 @@ esp_err_t app_connect(void) {
 }
 
 esp_err_t app_disconnect(void) {
-    if (s_semph_get_ip_addrs == NULL) {
+    if (s_semph_get_ip_addrs == NULL)
         return ESP_ERR_INVALID_STATE;
-    }
     vSemaphoreDelete(s_semph_get_ip_addrs);
     s_semph_get_ip_addrs = NULL;
     stop();
@@ -104,9 +103,8 @@ static void on_wifi_disconnect(void* arg, esp_event_base_t event_base, int32_t e
                                void* event_data) {
     ESP_LOGI(TAG, "Wi-Fi disconnected, trying to reconnect...");
     esp_err_t err = esp_wifi_connect();
-    if (err == ESP_ERR_WIFI_NOT_STARTED) {
+    if (err == ESP_ERR_WIFI_NOT_STARTED)
         return;
-    }
     ESP_ERROR_CHECK(err);
 }
 
@@ -125,17 +123,15 @@ static esp_netif_t* wifi_start(void) {
     esp_netif_t* netif = esp_netif_create_wifi(WIFI_IF_STA, &esp_netif_config);
     free(desc);
     esp_wifi_set_default_wifi_sta_handlers();
-
     ESP_ERROR_CHECK(esp_event_handler_register(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED,
                                                &on_wifi_disconnect, NULL));
     ESP_ERROR_CHECK(esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_got_ip, NULL));
-
     ESP_ERROR_CHECK(esp_wifi_set_storage(WIFI_STORAGE_RAM));
     wifi_config_t wifi_config = {
         .sta =
             {
-                .ssid = "2",
-                .password = "abc",
+                .ssid = WIFI_SSID,
+                .password = WIFI_PSWD,
                 .scan_method = WIFI_ALL_CHANNEL_SCAN,
                 .sort_method = WIFI_CONNECT_AP_BY_SECURITY,
                 .threshold.rssi = -127,
