@@ -4,13 +4,13 @@
 #include <string.h>
 
 #include "esp_log.h"
-#include "esp_netif.h"
 #include "esp_sleep.h"
 #include "esp_wifi.h"
 
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 
+#include "mqtt_client.h"
 #include "nvs_flash.h"
 #include "protocol_common.h"
 
@@ -18,11 +18,9 @@
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
-#include "mqtt_client.h"
-
 #define ERROR_CHECK(a) ESP_ERROR_CHECK(a)
 
-static const char *TAG = "MQTT_WEATHER";
+static const char* TAG = "WEATHER";
 
 #define I2C_MASTER_SCL_IO GPIO_NUM_14
 #define I2C_MASTER_SDA_IO GPIO_NUM_2
@@ -32,48 +30,68 @@ static const char *TAG = "MQTT_WEATHER";
 #define I2C_MASTER_RX_BUF_DISABLE 0
 #define I2C_MASTER_TIMEOUT_MS 1000
 
-enum {
-    BME280_SENSOR_ADDR = 0x60,
+#define BME280_SENSOR_ADDR 0x76
 
-    BME280_REG_T1 = 0x88,
-    BME280_REG_T2 = 0x8A,
-    BME280_REG_T3 = 0x8C,
+#define BME280_REG_T1 0x88
+#define BME280_REG_T2 0x8A
+#define BME280_REG_T3 0x8C
 
-    BME280_REG_P1 = 0x8E,
-    BME280_REG_P2 = 0x90,
-    BME280_REG_P3 = 0x92,
-    BME280_REG_P4 = 0x94,
-    BME280_REG_P5 = 0x96,
-    BME280_REG_P6 = 0x98,
-    BME280_REG_P7 = 0x9A,
-    BME280_REG_P8 = 0x9C,
-    BME280_REG_P9 = 0x9E,
+#define BME280_REG_P1 0x8E
+#define BME280_REG_P2 0x90
+#define BME280_REG_P3 0x92
+#define BME280_REG_P4 0x94
+#define BME280_REG_P5 0x96
+#define BME280_REG_P6 0x98
+#define BME280_REG_P7 0x9A
+#define BME280_REG_P8 0x9C
+#define BME280_REG_P9 0x9E
 
-    BME280_REG_H1 = 0xA1,
-    BME280_REG_H2 = 0xE1,
-    BME280_REG_H3 = 0xE3,
-    BME280_REG_H4 = 0xE4,
-    BME280_REG_H5 = 0xE5,
-    BME280_REG_H6 = 0xE7,
+#define BME280_REG_H1 0xA1
+#define BME280_REG_H2 0xE1
+#define BME280_REG_H3 0xE3
+#define BME280_REG_H4 0xE4
+#define BME280_REG_H5 0xE5
+#define BME280_REG_H6 0xE7
 
-    BME280_REG_CHIPID = 0xD0,
-    BME280_REG_RESET = 0xE0,
-    BME280_REG_RESET_VALUE = 0xB6,
+#define BME280_REG_CHIPID 0xD0
+#define BME280_REG_RESET 0xE0
+#define BME280_REG_RESET_VALUE 0xB6
 
-    BME280_REG_CONTROLHUMID = 0xF2,
-    BME280_REG_STATUS = 0XF3,
-    BME280_REG_STATUS_IM_UPDATE_MASK = 1 << 0,
-    BME280_REG_STATUS_MEASURING_MASK = 1 << 3,
-    BME280_REG_CONTROL = 0xF4,
-    BME280_REG_CONTROL_MODE_MASK = 3,
-    BME280_REG_CONTROL_MODE_SLEEP = 0,
-    BME280_REG_CONTROL_MODE_FORCED = 1,
-    BME280_REG_CONTROL_MODE_NORMAL = 3,
-    BME280_REG_CONFIG = 0xF5,
-    BME280_REG_PRESSUREDATA = 0xF7,
-    BME280_REG_TEMPDATA = 0xFA,
-    BME280_REG_HUMIDDATA = 0xFD
-};
+#define BME280_REG_CONTROLHUMID 0xF2
+#define BME280_REG_STATUS 0XF3
+#define BME280_REG_STATUS_IM_UPDATE_MASK (1 << 0)
+#define BME280_REG_STATUS_MEASURING_MASK (1 << 3)
+#define BME280_REG_CONTROL 0xF4
+#define BME280_REG_CONTROL_MODE_MASK 3
+#define BME280_REG_CONTROL_MODE_SLEEP 0
+#define BME280_REG_CONTROL_MODE_FORCED 1
+#define BME280_REG_CONTROL_MODE_NORMAL 3
+#define BME280_REG_CONFIG 0xF5
+#define BME280_REG_PRESSUREDATA 0xF7
+#define BME280_REG_TEMPDATA 0xFA
+#define BME280_REG_HUMIDDATA 0xFD
+
+#define SAMPLING_NONE 0b000
+#define SAMPLING_X1 0b001
+#define SAMPLING_X2 0b010
+#define SAMPLING_X4 0b011
+#define SAMPLING_X8 0b100
+#define SAMPLING_X16 0b101
+
+#define FILTER_OFF 0b000
+#define FILTER_X2 0b001
+#define FILTER_X4 0b010
+#define FILTER_X8 0b011
+#define FILTER_X16 0b100
+
+#define STANDBY_MS_0_5 0b000
+#define STANDBY_MS_10 0b110
+#define STANDBY_MS_20 0b111
+#define STANDBY_MS_62_5 0b001
+#define STANDBY_MS_125 0b010
+#define STANDBY_MS_250 0b011
+#define STANDBY_MS_500 0b100
+#define STANDBY_MS_1000 0b101
 
 // temperature compensation values
 static uint16_t T1;
@@ -86,39 +104,14 @@ static uint8_t H1, H3;
 static int16_t H2, H4, H5;
 static int8_t H6;
 
+// Final sensor values
 static uint32_t temperature, humidity, pressure;
 
+// IPC
 static StaticSemaphore_t staticSem;
 static SemaphoreHandle_t sem;
 
-enum sensor_sampling {
-    SAMPLING_NONE = 0b000,
-    SAMPLING_X1 = 0b001,
-    SAMPLING_X2 = 0b010,
-    SAMPLING_X4 = 0b011,
-    SAMPLING_X8 = 0b100,
-    SAMPLING_X16 = 0b101
-};
-
-enum sensor_filter {
-    FILTER_OFF = 0b000,
-    FILTER_X2 = 0b001,
-    FILTER_X4 = 0b010,
-    FILTER_X8 = 0b011,
-    FILTER_X16 = 0b100
-};
-
-enum standby_duration {
-    STANDBY_MS_0_5 = 0b000,
-    STANDBY_MS_10 = 0b110,
-    STANDBY_MS_20 = 0b111,
-    STANDBY_MS_62_5 = 0b001,
-    STANDBY_MS_125 = 0b010,
-    STANDBY_MS_250 = 0b011,
-    STANDBY_MS_500 = 0b100,
-    STANDBY_MS_1000 = 0b101
-};
-
+// Register bit maps
 static union {
     struct ctrl_meas {
         uint8_t mode : 2; // device mode
@@ -151,11 +144,6 @@ static union {
     } bits;
     uint8_t u;
 } configReg; //!< config register object
-
-static void log_error_if_nonzero(const char* message, int error_code) {
-    if (error_code != 0)
-        ESP_LOGE(TAG, "Last error %s: 0x%x", message, error_code);
-}
 
 static void write8(uint16_t reg, uint8_t val) {
     uint8_t buf[2] = {reg, val};
@@ -219,9 +207,8 @@ static void readCoefficients(void) {
     H6 = readS8(BME280_REG_H6);
 }
 
-static void setSampling(int mode, enum sensor_sampling tempSampling,
-                        enum sensor_sampling pressSampling, enum sensor_sampling humSampling,
-                        enum sensor_filter filter, enum standby_duration duration) {
+static void setSampling(int mode, int tempSampling, int pressSampling, int humSampling, int filter,
+                        int duration) {
     ctrlMeasReg.bits.mode = mode;
     ctrlMeasReg.bits.osrs_t = tempSampling;
     ctrlMeasReg.bits.osrs_p = pressSampling;
@@ -364,12 +351,14 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_ERROR:
         ESP_LOGI(TAG, "MQTT_EVENT_ERROR");
-        if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT) {
-            log_error_if_nonzero("reported from esp-tls", event->error_handle->esp_tls_last_esp_err);
-            log_error_if_nonzero("reported from tls stack", event->error_handle->esp_tls_stack_err);
-            log_error_if_nonzero("captured as transport's socket errno",  event->error_handle->esp_transport_sock_errno);
-            ESP_LOGI(TAG, "Last errno string (%s)", strerror(event->error_handle->esp_transport_sock_errno));
-        }
+        if (event->error_handle->error_type == MQTT_ERROR_TYPE_TCP_TRANSPORT)
+            if (event->error_handle->esp_transport_sock_errno != 0) {
+                ESP_LOGE(TAG, "captured as transport's socket errno (%d)",
+                         event->error_handle->esp_transport_sock_errno);
+                ESP_LOGI(TAG, "errno string (%s)",
+                         strerror(event->error_handle->esp_transport_sock_errno));
+            }
+        gotoSleep(client);
         break;
     default:
         ESP_LOGI(TAG, "Other event id:%d", event->event_id);
@@ -456,5 +445,5 @@ void app_main(void) {
 
     // mesurement done, release mqtt
     xSemaphoreGive(sem);
-    // die
+    // done
 }
