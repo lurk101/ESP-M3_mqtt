@@ -10,13 +10,13 @@
 #include "driver/gpio.h"
 #include "driver/i2c.h"
 
-#include "mqtt_client.h"
-#include "nvs_flash.h"
-#include "protocol_common.h"
-
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+
+#include "mqtt_client.h"
+#include "nvs_flash.h"
+#include "protocol_common.h"
 
 #define ERROR_CHECK(a) ESP_ERROR_CHECK(a)
 
@@ -293,18 +293,6 @@ static uint32_t Humidity(void) {
     return v_x1_u32r >> 12;
 }
 
-static void publish(esp_mqtt_client_handle_t client, const char* element, int32_t val) {
-    int msg_id;
-    char txt[16];
-    char topic[32];
-    strcpy(topic, "weather/");
-    strcat(topic, element);
-    sprintf(txt, "%d", val);
-    ESP_LOGI(TAG, "publishing %s as %s", element, txt);
-    msg_id = esp_mqtt_client_publish(client, topic, (const char*)txt, strlen(txt), 1, 0);
-    ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
-}
-
 static void done(void) {
     esp_wifi_disconnect();
     esp_sleep_enable_timer_wakeup(15 * 60 * 100);
@@ -321,14 +309,17 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
     ESP_LOGD(TAG, "Event dispatched from event loop base=%s, event_id=%d", base, event_id);
     esp_mqtt_event_handle_t event = event_data;
     esp_mqtt_client_handle_t client = event->client;
+    int msg_id;
+    char txt[128];
     switch ((esp_mqtt_event_id_t)event_id) {
     case MQTT_EVENT_CONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_CONNECTED");
         xSemaphoreTake(sem, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS));
-        ESP_LOGI(TAG, "publishing");
-        publish(client, "temperature", temperature);
-        publish(client, "pressure", pressure);
-        publish(client, "humidity", humidity);
+        sprintf(txt, "{\"temperature\":%d,\"humidity\":%d,\"pressure\":%d}", temperature, humidity,
+                pressure);
+        ESP_LOGI(TAG, "publishing /weather as %s", txt);
+        msg_id = esp_mqtt_client_publish(client, "/weather", (const char*)txt, strlen(txt), 1, 0);
+        ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
