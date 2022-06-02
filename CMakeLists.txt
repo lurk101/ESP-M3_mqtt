@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.5)
 # (Not part of the boilerplate)
 # This example uses an extra component for common functions such as Wi-Fi and Ethernet connection.
 set(EXTRA_COMPONENT_DIRS protocol)
-set(COMPONENTS protocol mqtt tcp_transport esp_netif main)
+set(COMPONENTS protocol mqtt tcp_transport main)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
 project(mqtt)
