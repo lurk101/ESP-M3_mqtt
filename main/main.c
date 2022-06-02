@@ -20,6 +20,8 @@
 
 #include "mqtt_client.h"
 
+#define ERROR_CHECK(a) ESP_ERROR_CHECK(a)
+
 static const char *TAG = "MQTT_WEATHER";
 
 #define I2C_MASTER_SCL_IO GPIO_NUM_14
@@ -157,16 +159,16 @@ static void log_error_if_nonzero(const char* message, int error_code) {
 
 static void write8(uint16_t reg, uint8_t val) {
     uint8_t buf[2] = {reg, val};
-    ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, buf, sizeof(buf),
-                                               pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, buf, sizeof(buf),
+                                           pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
 }
 
 static uint8_t read8(uint16_t reg) {
     uint8_t buf[1] = {reg};
-    ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, buf, sizeof(buf),
-                                               pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
-    ESP_ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, buf,
-                                                sizeof(buf), pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, buf, sizeof(buf),
+                                           pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, buf, sizeof(buf),
+                                            pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
     return buf[0];
 }
 
@@ -174,10 +176,10 @@ static int8_t readS8(uint16_t reg) { return (int8_t)read8(reg); }
 
 static uint16_t read16(uint16_t reg) {
     uint16_t buf = reg;
-    ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
-                                               1, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
-    ESP_ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
-                                                sizeof(buf), pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf, 1,
+                                           pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
+                                            sizeof(buf), pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
     return __builtin_bswap16(buf);
 }
 
@@ -185,10 +187,10 @@ static int16_t readS16(uint16_t reg) { return (int16_t)read16(reg); }
 
 static uint32_t read24(uint16_t reg) {
     uint32_t buf = reg;
-    ESP_ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
-                                               1, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
-    ESP_ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf,
-                                                3, pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf, 1,
+                                           pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
+    ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf, 3,
+                                            pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
     return __builtin_bswap32(buf);
 }
 
@@ -242,26 +244,6 @@ static void setSampling(int mode, enum sensor_sampling tempSampling,
     write8(BME280_REG_CONFIG, configReg.u);
 
     write8(BME280_REG_CONTROL, ctrlMeasReg.u);
-}
-
-static bool BME280_init() {
-    // check if sensor, i.e. the chip ID is correct
-    uint8_t _sensorID = read8(BME280_REG_CHIPID);
-    if (_sensorID != 0x60)
-        return false;
-    // reset the device using soft-reset
-    // this makes sure the IIR is off, etc.
-    write8(BME280_REG_RESET, BME280_REG_RESET_VALUE);
-    // wait for chip to wake up.
-    vTaskDelay(10);
-    // if chip is still reading calibration, delay
-    while (isReadingCalibration())
-        vTaskDelay(pdMS_TO_TICKS(10));
-    readCoefficients(); // read trimming parameters, see DS 4.2.2
-    setSampling(BME280_REG_CONTROL_MODE_FORCED, SAMPLING_X1, SAMPLING_X1, SAMPLING_X1, FILTER_OFF,
-                STANDBY_MS_0_5);
-    vTaskDelay(pdMS_TO_TICKS(10));
-    return true;
 }
 
 static int32_t t_fine;
@@ -324,24 +306,6 @@ static uint32_t Humidity(void) {
     return v_x1_u32r >> 12;
 }
 
-static bool takeForcedMeasurement(void) {
-    bool return_value = false;
-    if ((ctrlMeasReg.bits.mode & BME280_REG_CONTROL_MODE_MASK) == BME280_REG_CONTROL_MODE_FORCED) {
-        return_value = true;
-        write8(BME280_REG_CONTROL, ctrlMeasReg.u);
-        uint32_t timeout_start = xTaskGetTickCount();
-        while (read8(BME280_REG_STATUS) & BME280_REG_STATUS_MEASURING_MASK) {
-            // In case of a timeout, stop the while loop
-            if ((xTaskGetTickCount() - timeout_start) > pdMS_TO_TICKS(2000)) {
-                return_value = false;
-                break;
-            }
-            vTaskDelay(pdMS_TO_TICKS(100));
-        }
-    }
-    return return_value;
-}
-
 static void publish(esp_mqtt_client_handle_t client, const char* element, int32_t val) {
     int msg_id;
     char txt[16];
@@ -354,10 +318,15 @@ static void publish(esp_mqtt_client_handle_t client, const char* element, int32_
     ESP_LOGI(TAG, "sent publish successful, msg_id=%d", msg_id);
 }
 
-static void gotoSleep(void) {
+static void done(void) {
     esp_wifi_disconnect();
     esp_sleep_enable_timer_wakeup(15 * 60 * 100);
     esp_deep_sleep_start();
+}
+
+static void gotoSleep(esp_mqtt_client_handle_t client) {
+    esp_mqtt_client_disconnect(client);
+    done();
 }
 
 static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id,
@@ -376,7 +345,7 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_DISCONNECTED:
         ESP_LOGI(TAG, "MQTT_EVENT_DISCONNECTED");
-        gotoSleep();
+        gotoSleep(client);
         break;
     case MQTT_EVENT_SUBSCRIBED:
         ESP_LOGI(TAG, "MQTT_EVENT_SUBSCRIBED, msg_id=%d", event->msg_id);
@@ -386,8 +355,7 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
         break;
     case MQTT_EVENT_PUBLISHED:
         ESP_LOGI(TAG, "MQTT_EVENT_PUBLISHED, msg_id=%d", event->msg_id);
-        esp_mqtt_client_disconnect(client);
-        gotoSleep();
+        gotoSleep(client);
         break;
     case MQTT_EVENT_DATA:
         ESP_LOGI(TAG, "MQTT_EVENT_DATA");
@@ -409,19 +377,6 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
     }
 }
 
-static void i2c_init(void) {
-    i2c_config_t conf = {
-        .mode = I2C_MODE_MASTER,
-        .sda_io_num = I2C_MASTER_SDA_IO, // select GPIO specific to your project
-        .sda_pullup_en = GPIO_PULLUP_DISABLE,
-        .scl_io_num = I2C_MASTER_SCL_IO, // select GPIO specific to your project
-        .scl_pullup_en = GPIO_PULLUP_DISABLE,
-        .master.clk_speed = I2C_MASTER_FREQ_HZ // select frequency specific to your project
-    };
-    ESP_ERROR_CHECK(i2c_param_config(I2C_MASTER_NUM, &conf));
-    ESP_ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, I2C_MODE_MASTER, 0, 0, 0));
-}
-
 // main thread
 void app_main(void) {
     ESP_LOGI(TAG, "[APP] Startup..");
@@ -435,10 +390,10 @@ void app_main(void) {
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
 
-    ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    ESP_ERROR_CHECK(app_connect());
+    ERROR_CHECK(nvs_flash_init());
+    ERROR_CHECK(esp_netif_init());
+    ERROR_CHECK(esp_event_loop_create_default());
+    ERROR_CHECK(app_connect());
 
     sem = xSemaphoreCreateBinaryStatic(&staticSem);
 
@@ -455,13 +410,48 @@ void app_main(void) {
     // main task continues with sensor management
     gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
     gpio_set_level(GPIO_NUM_4, 1);
-    i2c_init();
+    i2c_config_t conf = {
+        .mode = I2C_MODE_MASTER,
+        .sda_io_num = I2C_MASTER_SDA_IO, // select GPIO specific to your project
+        .sda_pullup_en = GPIO_PULLUP_DISABLE,
+        .scl_io_num = I2C_MASTER_SCL_IO, // select GPIO specific to your project
+        .scl_pullup_en = GPIO_PULLUP_DISABLE,
+        .master.clk_speed = I2C_MASTER_FREQ_HZ // select frequency specific to your project
+    };
+    ERROR_CHECK(i2c_param_config(I2C_MASTER_NUM, &conf));
+    ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, I2C_MODE_MASTER, 0, 0, 0));
     vTaskDelay(pdMS_TO_TICKS(20));
-    BME280_init();
-    takeForcedMeasurement();
+    // check if sensor, i.e. the chip ID is correct
+    uint8_t _sensorID = read8(BME280_REG_CHIPID);
+    if (_sensorID != 0x60) {
+        ESP_LOGE(TAG, "Unknown sensor %02x", _sensorID);
+        done();
+    }
+    // reset the device using soft-reset
+    // this makes sure the IIR is off, etc.
+    write8(BME280_REG_RESET, BME280_REG_RESET_VALUE);
+    // wait for chip to wake up.
+    vTaskDelay(10);
+    // if chip is still reading calibration, delay
+    while (isReadingCalibration())
+        vTaskDelay(pdMS_TO_TICKS(10));
+    readCoefficients(); // read trimming parameters, see DS 4.2.2
+    setSampling(BME280_REG_CONTROL_MODE_FORCED, SAMPLING_X1, SAMPLING_X1, SAMPLING_X1, FILTER_OFF,
+                STANDBY_MS_0_5);
+    write8(BME280_REG_CONTROL, ctrlMeasReg.u);
+    uint32_t timeout_start = xTaskGetTickCount();
+    while (read8(BME280_REG_STATUS) & BME280_REG_STATUS_MEASURING_MASK) {
+        // In case of a timeout, stop the while loop
+        if ((xTaskGetTickCount() - timeout_start) > pdMS_TO_TICKS(2 * I2C_MASTER_TIMEOUT_MS)) {
+            ESP_LOGE(TAG, "Timeout waiting for measurement");
+            done();
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
     temperature = Temperature();
     pressure = Pressure();
     humidity = Humidity();
+    i2c_driver_delete(I2C_MASTER_NUM);
     gpio_set_level(GPIO_NUM_4, 0);
 
     // mesurement done, release mqtt
