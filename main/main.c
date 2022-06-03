@@ -177,7 +177,9 @@ static uint32_t read24(uint16_t reg) {
     uint32_t buf = reg;
     ERROR_CHECK(i2c_master_write_to_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf, 1,
                                            pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
-    ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR, (uint8_t*)&buf, 3,
+    *((uint8_t*)buf) = 0;
+    ERROR_CHECK(i2c_master_read_from_device(I2C_MASTER_NUM, BME280_SENSOR_ADDR,
+                                            ((uint8_t*)&buf) + 1, 3,
                                             pdMS_TO_TICKS(I2C_MASTER_TIMEOUT_MS)));
     return __builtin_bswap32(buf);
 }
@@ -207,8 +209,8 @@ static void readCoefficients(void) {
     H6 = readS8(BME280_REG_H6);
 }
 
-static void setSampling(int mode, int tempSampling, int pressSampling, int humSampling, int filter,
-                        int duration) {
+static void startMeasurement(int mode, int tempSampling, int pressSampling, int humSampling,
+                             int filter, int duration) {
     ctrlMeasReg.bits.mode = mode;
     ctrlMeasReg.bits.osrs_t = tempSampling;
     ctrlMeasReg.bits.osrs_p = pressSampling;
@@ -388,8 +390,10 @@ void app_main(void) {
     esp_mqtt_client_start(client);
 
     // main task continues with sensor management
+    // Power the BME280
     gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
     gpio_set_level(GPIO_NUM_4, 1);
+    // Init I2C
     i2c_config_t conf = {
         .mode = I2C_MODE_MASTER,
         .sda_io_num = I2C_MASTER_SDA_IO, // select GPIO specific to your project
@@ -400,6 +404,7 @@ void app_main(void) {
     };
     ERROR_CHECK(i2c_param_config(I2C_MASTER_NUM, &conf));
     ERROR_CHECK(i2c_driver_install(I2C_MASTER_NUM, I2C_MODE_MASTER, 0, 0, 0));
+    // allow BME280 time to power up
     vTaskDelay(pdMS_TO_TICKS(20));
     // check if sensor, i.e. the chip ID is correct
     uint8_t _sensorID = read8(BME280_REG_CHIPID);
@@ -409,16 +414,17 @@ void app_main(void) {
     }
     // reset the device using soft-reset
     // this makes sure the IIR is off, etc.
-    write8(BME280_REG_RESET, BME280_REG_RESET_VALUE);
+    // write8(BME280_REG_RESET, BME280_REG_RESET_VALUE);
     // wait for chip to wake up.
     vTaskDelay(10);
     // if chip is still reading calibration, delay
     while (isReadingCalibration())
         vTaskDelay(pdMS_TO_TICKS(10));
-    readCoefficients(); // read trimming parameters, see DS 4.2.2
-    setSampling(BME280_REG_CONTROL_MODE_FORCED, SAMPLING_X1, SAMPLING_X1, SAMPLING_X1, FILTER_OFF,
-                STANDBY_MS_0_5);
-    write8(BME280_REG_CONTROL, ctrlMeasReg.u);
+    // get trim and set coefficient values
+    readCoefficients(); // read trim parameters, see DS 4.2.2
+    // take measurements
+    startMeasurement(BME280_REG_CONTROL_MODE_FORCED, SAMPLING_X1, SAMPLING_X1, SAMPLING_X1,
+                     FILTER_OFF, STANDBY_MS_0_5);
     uint32_t timeout_start = xTaskGetTickCount();
     while (read8(BME280_REG_STATUS) & BME280_REG_STATUS_MEASURING_MASK) {
         // In case of a timeout, stop the while loop
@@ -428,10 +434,13 @@ void app_main(void) {
         }
         vTaskDelay(pdMS_TO_TICKS(20));
     }
+    // retrieve measurements
     temperature = Temperature();
     pressure = Pressure();
     humidity = Humidity();
+    // kill the I2C pins
     i2c_driver_delete(I2C_MASTER_NUM);
+    // power down
     gpio_set_level(GPIO_NUM_4, 0);
 
     // mesurement done, release mqtt
