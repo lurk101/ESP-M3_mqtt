@@ -7,14 +7,14 @@
 #include "esp_sleep.h"
 #include "esp_wifi.h"
 
-#include "driver/gpio.h"
-#include "driver/i2c.h"
+#include "driver/uart.h"
 
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
 
 #include "bme280.h"
+#include "esp_vfs_dev.h"
 #include "mqtt_client.h"
 #include "nvs_flash.h"
 #include "protocol_common.h"
@@ -92,6 +92,14 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
 
 // main thread
 void app_main(void) {
+
+    setvbuf(stdin, NULL, _IONBF, 0);
+    ESP_ERROR_CHECK(
+        uart_driver_install((uart_port_t)CONFIG_ESP_CONSOLE_UART_NUM, 256, 0, 0, NULL, 0));
+    esp_vfs_dev_uart_use_driver(CONFIG_ESP_CONSOLE_UART_NUM);
+    esp_vfs_dev_uart_port_set_rx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CR);
+    esp_vfs_dev_uart_port_set_tx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CRLF);
+
     ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
