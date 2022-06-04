@@ -31,20 +31,12 @@ extern "C" {
  *
  * @return ESP_OK on successful connection
  */
-esp_err_t app_connect(void);
+esp_err_t connect(void);
 
 /**
- * Counterpart to example_connect, de-initializes Wi-Fi or Ethernet
+ * Counterpart to connect, de-initializes Wi-Fi or Ethernet
  */
-esp_err_t app_disconnect(void);
-
-/**
- * @brief Configure stdin and stdout to use blocking I/O
- *
- * This helper function is used in ASIO examples. It wraps installing the
- * UART driver and configuring VFS layer to use UART driver for console I/O.
- */
-esp_err_t app_configure_stdin_stdout(void);
+esp_err_t disconnect(void);
 
 /**
  * @brief Returns esp-netif pointer created by example_connect()
@@ -53,7 +45,7 @@ esp_err_t app_configure_stdin_stdout(void);
  * In that case the get_example_netif_from_desc() should be used
  * to get esp-netif pointer based on interface description
  */
-esp_netif_t* app_get_netif(void);
+esp_netif_t* get_netif(void);
 
 /**
  * @brief Returns esp-netif pointer created by example_connect() described by
@@ -63,7 +55,7 @@ esp_netif_t* app_get_netif(void);
  * indicate default WiFi station, "eth" default Ethernet interface.
  *
  */
-esp_netif_t* app_get_netif_from_desc(const char* desc);
+esp_netif_t* get_netif_from_desc(const char* desc);
 
 #ifdef __cplusplus
 }

@@ -1,3 +1,4 @@
+#include "protocol.h"
 #include "driver/gpio.h"
 #include "esp_event.h"
 #include "esp_log.h"
@@ -9,7 +10,6 @@
 #include "freertos/task.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
-#include "protocol_common.h"
 #include "sdkconfig.h"
 #include <string.h>
 
@@ -67,7 +67,7 @@ static void on_got_ip(void* arg, esp_event_base_t event_base, int32_t event_id, 
     xSemaphoreGive(s_semph_get_ip_addrs);
 }
 
-esp_err_t app_connect(void) {
+esp_err_t connect(void) {
     if (s_semph_get_ip_addrs != NULL)
         return ESP_ERR_INVALID_STATE;
     start();
@@ -89,7 +89,7 @@ esp_err_t app_connect(void) {
     return ESP_OK;
 }
 
-esp_err_t app_disconnect(void) {
+esp_err_t disconnect(void) {
     if (s_semph_get_ip_addrs == NULL)
         return ESP_ERR_INVALID_STATE;
     vSemaphoreDelete(s_semph_get_ip_addrs);
@@ -147,7 +147,7 @@ static esp_netif_t* wifi_start(void) {
 }
 
 static void wifi_stop(void) {
-    esp_netif_t* wifi_netif = app_get_netif_from_desc("sta");
+    esp_netif_t* wifi_netif = get_netif_from_desc("sta");
     ESP_ERROR_CHECK(
         esp_event_handler_unregister(WIFI_EVENT, WIFI_EVENT_STA_DISCONNECTED, &on_wifi_disconnect));
     ESP_ERROR_CHECK(esp_event_handler_unregister(IP_EVENT, IP_EVENT_STA_GOT_IP, &on_got_ip));
@@ -162,9 +162,9 @@ static void wifi_stop(void) {
     s_esp_netif = NULL;
 }
 
-esp_netif_t* app_get_netif(void) { return s_esp_netif; }
+esp_netif_t* get_netif(void) { return s_esp_netif; }
 
-esp_netif_t* app_get_netif_from_desc(const char* desc) {
+esp_netif_t* get_netif_from_desc(const char* desc) {
     esp_netif_t* netif = NULL;
     char* expected_desc;
     asprintf(&expected_desc, "%s: %s", TAG, desc);

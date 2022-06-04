@@ -17,13 +17,13 @@
 #include "esp_vfs_dev.h"
 #include "mqtt_client.h"
 #include "nvs_flash.h"
-#include "protocol_common.h"
+#include "protocol.h"
 
 #define ERROR_CHECK(a) ESP_ERROR_CHECK(a)
+#define SEM_TIMEOUT_MS 2000
+#define POLL_INTERVAL_MIN 10
 
 static const char* TAG = "WEATHER";
-
-#define SEM_TIMEOUT_MS 2000
 
 // IPC
 static StaticSemaphore_t staticSem;
@@ -33,8 +33,7 @@ static int temperature, humidity, pressure;
 static void gotoSleep(esp_mqtt_client_handle_t client) {
     esp_mqtt_client_disconnect(client);
     esp_wifi_disconnect();
-    esp_sleep_enable_timer_wakeup(15 * 60 * 100);
-    esp_deep_sleep_start();
+    esp_deep_sleep(POLL_INTERVAL_MIN * 60 * 1000000ULL);
 }
 
 static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_t event_id,
@@ -92,7 +91,7 @@ static void mqtt_event_handler(void* handler_args, esp_event_base_t base, int32_
 
 // main thread
 void app_main(void) {
-
+    // configure console
     setvbuf(stdin, NULL, _IONBF, 0);
     ESP_ERROR_CHECK(
         uart_driver_install((uart_port_t)CONFIG_ESP_CONSOLE_UART_NUM, 256, 0, 0, NULL, 0));
@@ -100,21 +99,23 @@ void app_main(void) {
     esp_vfs_dev_uart_port_set_rx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CR);
     esp_vfs_dev_uart_port_set_tx_line_endings(CONFIG_ESP_CONSOLE_UART_NUM, ESP_LINE_ENDINGS_CRLF);
 
-    ESP_LOGI(TAG, "[APP] Startup..");
-    ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+    ESP_LOGI(TAG, "Startup..");
+    ESP_LOGI(TAG, "Free memory: %d bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "IDF version: %s", esp_get_idf_version());
+
     esp_log_level_set("*", ESP_LOG_INFO);
     esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
-    esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
+    esp_log_level_set("WEATHER", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT_BASE", ESP_LOG_VERBOSE);
     esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+    esp_log_level_set("CONNECT", ESP_LOG_VERBOSE);
 
     ERROR_CHECK(nvs_flash_init());
     ERROR_CHECK(esp_netif_init());
     ERROR_CHECK(esp_event_loop_create_default());
-    ERROR_CHECK(app_connect());
+    ERROR_CHECK(connect());
 
     sem = xSemaphoreCreateBinaryStatic(&staticSem);
 
